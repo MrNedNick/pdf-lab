@@ -4,9 +4,10 @@ import { Button } from '../button/button'
 import { Modal } from '../modal/modal'
 import { FileDrop } from './file-drop'
 import { Viewer } from './viewer'
+import { OrganizeTool } from './organize-tool'
 
 /** The open PDF of a tool page: choose a file, unlock it if needed, look at it. */
-export function Workspace() {
+export function Workspace({ tool }: { tool: string }) {
   const { state, openFile, unlock, close } = useDocument()
   const [password, setPassword] = useState('')
 
@@ -30,7 +31,17 @@ export function Workspace() {
             Open another PDF
           </Button>
         </div>
-        <Viewer doc={state.doc} sizes={state.sizes} />
+        {tool === 'organize' ? (
+          <OrganizeTool
+            doc={state.doc}
+            sizes={state.sizes}
+            bytes={state.bytes}
+            name={state.name}
+            password={state.password}
+          />
+        ) : (
+          <Viewer doc={state.doc} sizes={state.sizes} />
+        )}
       </div>
     )
 

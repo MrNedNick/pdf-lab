@@ -12,7 +12,7 @@ export type DocumentState =
   | { status: 'loading'; name: string }
   | { status: 'password'; name: string; wrong: boolean }
   | { status: 'error'; name: string; message: string }
-  | { status: 'ready'; name: string; bytes: Uint8Array; doc: PDFDocumentProxy; sizes: PageSize[] }
+  | { status: 'ready'; name: string; bytes: Uint8Array; doc: PDFDocumentProxy; sizes: PageSize[]; password?: string }
 
 const MAX_BYTES = 200 * 1024 * 1024
 
@@ -47,7 +47,7 @@ export function useDocument() {
       pending.current = null
       const first = (await doc.getPage(1)).getViewport({ scale: 1 })
       const sizes: PageSize[] = Array.from({ length: doc.numPages }, () => ({ width: first.width, height: first.height }))
-      setState({ status: 'ready', name, bytes, doc, sizes })
+      setState({ status: 'ready', name, bytes, doc, sizes, password })
       for (let start = 2; start <= doc.numPages; start += 25) {
         const batch = await Promise.all(
           Array.from({ length: Math.min(25, doc.numPages - start + 1) }, (_, k) =>

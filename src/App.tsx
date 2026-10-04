@@ -46,7 +46,7 @@ export default function App() {
             </h1>
             <p className="mt-1 text-text-muted">{tool.summary}</p>
             <Suspense fallback={<p className="mt-6 text-sm text-text-muted">Loading the PDF tools…</p>}>
-              <Workspace key={tool.slug} />
+              <Workspace key={tool.slug} tool={tool.slug} />
             </Suspense>
           </section>
         ) : (
