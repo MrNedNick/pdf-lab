@@ -1,4 +1,4 @@
-import type { PDFFont, StandardFonts } from '@cantoo/pdf-lib'
+import type { PDFFont, PDFImage, StandardFonts } from '@cantoo/pdf-lib'
 import { pdfLib } from './lib'
 import { LINE_HEIGHT, type Family, type Mark } from './marks'
 import { loadForWriting } from './write'
@@ -61,6 +61,7 @@ export async function stamp(
     return unicode
   }
 
+  const images = new Map<string, PDFImage>()
   const pages = doc.getPages()
   for (const mark of marks) {
     const page = pages[mark.page - 1]
@@ -105,6 +106,17 @@ export async function stamp(
           borderColor: color(mark.color),
           borderWidth: 2,
         })
+        break
+      }
+      case 'image': {
+        let image = images.get(mark.src)
+        if (!image) {
+          image = await doc.embedPng(mark.src)
+          images.set(mark.src, image)
+        }
+        // The picture's lower-left corner as seen, turned with the page so it stays upright.
+        const [x, y] = space.toPdf(mark.x, mark.y + mark.height)
+        page.drawImage(image, { x, y, width: mark.width, height: mark.height, rotate: degrees(space.rotation) })
         break
       }
       case 'line':

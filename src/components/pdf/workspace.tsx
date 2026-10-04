@@ -60,8 +60,8 @@ export function Workspace({ tool }: { tool: string }) {
           <OrganizeTool {...opened} />
         ) : tool === 'split' ? (
           <SplitTool {...opened} />
-        ) : tool === 'edit' ? (
-          <EditTool {...opened} />
+        ) : tool === 'edit' || tool === 'sign' ? (
+          <EditTool mode={tool} {...opened} />
         ) : tool === 'pdf-to-images' ? (
           <PdfToImages {...opened} />
         ) : (

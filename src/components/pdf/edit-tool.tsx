@@ -22,10 +22,18 @@ import { derivedName, download } from '../../pdf/write'
 import { cn } from '../../lib/cn'
 import { Button } from '../button/button'
 import { PageCanvas } from './page-canvas'
+import { SignaturePanel } from './signature-panel'
+import { remembered, type Signature } from '../../pdf/signature'
 
-type Tool = 'select' | 'text' | 'line-edit' | 'cover' | 'highlight' | 'draw' | 'rect' | 'ellipse' | 'line'
+type Tool = 'sign' | 'select' | 'text' | 'line-edit' | 'cover' | 'highlight' | 'draw' | 'rect' | 'ellipse' | 'line'
 
-const TOOLS: [Tool, string, string][] = [
+const SIGN_TOOLS: [Tool, string, string][] = [
+  ['sign', 'Place signature', 'Click the page where the signature goes; drag it to move, its corner to resize.'],
+  ['select', 'Select', 'Click a mark to move it; Delete removes it, arrows nudge it, + and − resize a signature.'],
+  ['text', 'Text', 'Click where the text should start — a date, initials — then type.'],
+]
+
+const EDIT_TOOLS: [Tool, string, string][] = [
   ['select', 'Select', 'Click a mark to move it; Delete removes it, arrows nudge it.'],
   ['line-edit', 'Edit a line', 'Click a line of the document: it is covered and retyped in a similar font, ready to change.'],
   ['text', 'Text', 'Click where the text should start, then type.'],
@@ -44,6 +52,8 @@ let lastId = 0
 const nextId = () => ++lastId
 
 interface Props {
+  /** Signing shows a signature maker and fewer tools over the same pages. */
+  mode?: 'edit' | 'sign'
   doc: PDFDocumentProxy
   sizes: PageSize[]
   bytes: Uint8Array
@@ -52,10 +62,12 @@ interface Props {
 }
 
 /** Text, highlights, drawings and white-outs over the pages; written into the file on Download. */
-export function EditTool({ doc, sizes, bytes, name, password }: Props) {
+export function EditTool({ mode = 'edit', doc, sizes, bytes, name, password }: Props) {
+  const tools = mode === 'sign' ? SIGN_TOOLS : EDIT_TOOLS
+  const [signature, setSignature] = useState<Signature | null>(() => (mode === 'sign' ? remembered() : null))
   const [state, dispatch] = useReducer(history, emptyHistory)
   const marks = state.present
-  const [tool, setTool] = useState<Tool>('line-edit')
+  const [tool, setTool] = useState<Tool>(mode === 'sign' ? 'sign' : 'line-edit')
   const [pen, setPen] = useState(PENS[0]!)
   const [marker, setMarker] = useState(MARKERS[0]!)
   const [textSize, setTextSize] = useState(14)
@@ -142,8 +154,20 @@ export function EditTool({ doc, sizes, bytes, name, password }: Props) {
   }
 
   const click = async (event: MouseEvent, page: number) => {
-    if (editing !== null || (tool !== 'text' && tool !== 'line-edit')) return
+    if (grabbed.current) return void (grabbed.current = false)
+    if (editing !== null || (tool !== 'text' && tool !== 'line-edit' && tool !== 'sign')) return
     const point = pointIn(event, page)
+    if (tool === 'sign') {
+      if (!signature) return setStatus('Make your signature first — draw, type or upload it above.')
+      // About the size of a real signature on paper: 150 pt wide, but never wider than a third of the page.
+      const width = Math.min(150, sizes[page - 1]!.width / 3)
+      const height = (width * signature.height) / signature.width
+      const mark: Mark = { id: nextId(), page, kind: 'image', color: '', src: signature.src, x: point[0] - width / 2, y: point[1] - height / 2, width, height }
+      commit([...marks, mark])
+      setSelected(mark.id)
+      setStatus(`Signature placed on page ${page}. Drag it to move, its corner to resize, or download.`)
+      return
+    }
     if (tool === 'text') {
       const mark: Mark = { id: nextId(), page, kind: 'text', color: pen, x: point[0], baseline: point[1] + textSize * 0.35, size: textSize, family: 'sans', text: '' }
       setPending([mark])
@@ -187,23 +211,27 @@ export function EditTool({ doc, sizes, bytes, name, password }: Props) {
     if (!tiny) commit([...marks, shape])
   }
 
-  // Dragging a mark in Select mode.
-  const moving = useRef<{ id: number; from: [number, number]; original: Mark; page: number } | null>(null)
-  const grab = (event: PointerEvent, mark: Mark) => {
+  // Dragging a mark in Select mode, or a signature while placing them; `resize` drags its corner.
+  const moving = useRef<{ id: number; from: [number, number]; original: Mark; page: number; resize?: boolean } | null>(null)
+  /** A press on a mark also ends in a click on the page under it; that click must not place anything. */
+  const grabbed = useRef(false)
+  const canMove = (mark: Mark) => tool === 'select' || (tool === 'sign' && mark.kind === 'image')
+  const grab = (event: PointerEvent, mark: Mark, resize = false) => {
     if (mark.kind === 'text' && (tool === 'text' || tool === 'line-edit') && editing === null) {
       // Clicking text you already wrote opens it again instead of starting a new one.
       event.stopPropagation()
       event.preventDefault()
       return setEditing(mark.id)
     }
-    if (tool !== 'select') return
+    if (!canMove(mark)) return
     event.stopPropagation()
+    grabbed.current = true
     setSelected(mark.id)
     const overlay = (event.currentTarget as HTMLElement).closest<HTMLElement>('[data-overlay]')!
     const rect = overlay.getBoundingClientRect()
     const size = sizes[mark.page - 1]!
     const at: [number, number] = [((event.clientX - rect.left) / rect.width) * size.width, ((event.clientY - rect.top) / rect.height) * size.height]
-    moving.current = { id: mark.id, from: at, original: mark, page: mark.page }
+    moving.current = { id: mark.id, from: at, original: mark, page: mark.page, resize }
     overlay.setPointerCapture(event.pointerId)
   }
   const shift = (mark: Mark, dx: number, dy: number): Mark =>
@@ -217,7 +245,12 @@ export function EditTool({ doc, sizes, bytes, name, password }: Props) {
     const current = moving.current
     if (!current) return move(event, page)
     const [x, y] = pointIn(event, page)
-    setDraft(shift(current.original, x - current.from[0], y - current.from[1]))
+    const original = current.original
+    if (current.resize && original.kind === 'image') {
+      const width = Math.max(24, original.width + x - current.from[0])
+      return setDraft({ ...original, width, height: (width * original.height) / original.width })
+    }
+    setDraft(shift(original, x - current.from[0], y - current.from[1]))
   }
   const overlayUp = (event: PointerEvent, page: number) => {
     const current = moving.current
@@ -236,6 +269,10 @@ export function EditTool({ doc, sizes, bytes, name, password }: Props) {
     } else if (event.key === 'Delete' || event.key === 'Backspace') {
       event.preventDefault()
       removeMark(mark.id)
+    } else if ((event.key === '+' || event.key === '=' || event.key === '-') && mark.kind === 'image') {
+      event.preventDefault()
+      const factor = event.key === '-' ? 1 / 1.1 : 1.1
+      update(mark.id, { width: mark.width * factor, height: mark.height * factor })
     } else if (event.key === 'Enter' && mark.kind === 'text') {
       event.preventDefault()
       setEditing(mark.id)
@@ -278,7 +315,7 @@ export function EditTool({ doc, sizes, bytes, name, password }: Props) {
         spaces.set(number, { toPdf: (x, y) => viewport.convertToPdfPoint(x, y) as [number, number], rotation: page.rotate })
       }
       const font = () => fetch(`${import.meta.env.BASE_URL}fonts/NotoSans-Regular.ttf`).then((response) => response.arrayBuffer())
-      download(await stamp(bytes, password, marks, (number) => spaces.get(number)!, font), derivedName(name, 'edited'))
+      download(await stamp(bytes, password, marks, (number) => spaces.get(number)!, font), derivedName(name, mode === 'sign' ? 'signed' : 'edited'))
       setStatus(`Saved with ${marks.length} ${marks.length === 1 ? 'change' : 'changes'}`)
     } catch {
       setStatus('The file could not be written. Try again.')
@@ -287,15 +324,16 @@ export function EditTool({ doc, sizes, bytes, name, password }: Props) {
     }
   }
 
-  const hint = TOOLS.find(([value]) => value === tool)![2]
+  const hint = tools.find(([value]) => value === tool)![2]
   const swatches = tool === 'highlight' ? MARKERS : PENS
   const current = tool === 'highlight' ? marker : pen
 
   return (
-    <section aria-label="Edit" className="mt-6 space-y-3">
+    <section aria-label={mode === 'sign' ? 'Sign' : 'Edit'} className="mt-6 space-y-3">
+      {mode === 'sign' && <SignaturePanel value={signature} onChange={setSignature} />}
       <div className="sticky top-0 z-20 space-y-2 rounded-lg border border-border bg-surface/95 p-2 backdrop-blur">
         <div role="toolbar" aria-label="Tools" className="flex flex-wrap gap-1">
-          {TOOLS.map(([value, label]) => (
+          {tools.map(([value, label]) => (
             <Button
               key={value}
               size="sm"
@@ -311,7 +349,7 @@ export function EditTool({ doc, sizes, bytes, name, password }: Props) {
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {tool !== 'cover' && tool !== 'select' && tool !== 'line-edit' && (
+          {tool !== 'cover' && tool !== 'select' && tool !== 'line-edit' && tool !== 'sign' && (
             <div role="radiogroup" aria-label="Colour" className="flex gap-1">
               {swatches.map((swatch) => (
                 <button
@@ -370,7 +408,7 @@ export function EditTool({ doc, sizes, bytes, name, password }: Props) {
                 className={cn(
                   'absolute inset-0',
                   // A finger scrolls the document unless the tool draws with it.
-                  tool === 'select' || tool === 'line-edit' || tool === 'text' ? 'touch-manipulation' : 'touch-none',
+                  tool === 'select' || tool === 'line-edit' || tool === 'text' || tool === 'sign' ? 'touch-manipulation' : 'touch-none',
                   tool === 'select' ? 'cursor-default' : tool === 'line-edit' || tool === 'text' ? 'cursor-text' : 'cursor-crosshair',
                 )}
                 onPointerDown={(event) => down(event, page)}
@@ -385,7 +423,14 @@ export function EditTool({ doc, sizes, bytes, name, password }: Props) {
                 <div className="absolute top-0 left-0 origin-top-left" style={{ width: size.width, height: size.height, transform: `scale(${scale})` }}>
                   <svg width={size.width} height={size.height} className="absolute inset-0 overflow-visible">
                     {shown.map((mark) => (
-                      <Shape key={mark.id} mark={mark} selected={selected === mark.id} onGrab={(event) => grab(event, mark)} onKey={(event) => markKey(event, mark)} selectable={tool === 'select'} />
+                      <Shape
+                        key={mark.id}
+                        mark={mark}
+                        selected={selected === mark.id}
+                        onGrab={(event, resize) => grab(event, mark, resize)}
+                        onKey={(event) => markKey(event, mark)}
+                        selectable={canMove(mark)}
+                      />
                     ))}
                   </svg>
                   {shown.map((mark) =>
@@ -468,7 +513,7 @@ function Shape({
   mark: Mark
   selected: boolean
   selectable: boolean
-  onGrab: (event: PointerEvent) => void
+  onGrab: (event: PointerEvent, resize?: boolean) => void
   onKey: (event: KeyboardEvent) => void
 }) {
   if (mark.kind === 'text') return null
@@ -476,12 +521,33 @@ function Shape({
     role: selectable ? 'button' : undefined,
     tabIndex: selectable ? 0 : undefined,
     'aria-label': selectable ? labelFor(mark) : undefined,
-    onPointerDown: onGrab,
+    onPointerDown: (event: PointerEvent) => onGrab(event),
     onKeyDown: onKey,
     className: cn(selectable && 'cursor-move touch-none', selected && 'outline-2 outline-accent outline-dashed'),
     style: { pointerEvents: selectable ? ('auto' as const) : ('none' as const) },
   }
   switch (mark.kind) {
+    case 'image':
+      return (
+        <g>
+          <image {...common} href={mark.src} x={mark.x} y={mark.y} width={mark.width} height={mark.height} preserveAspectRatio="none" />
+          {selected && selectable && (
+            // The corner handle: drag to resize, keeping the signature's proportions.
+            <rect
+              aria-hidden="true"
+              x={mark.x + mark.width - 6}
+              y={mark.y + mark.height - 6}
+              width={12}
+              height={12}
+              rx={2}
+              className="cursor-nwse-resize touch-none fill-accent stroke-white"
+              strokeWidth={1.5}
+              style={{ pointerEvents: 'auto' }}
+              onPointerDown={(event) => onGrab(event, true)}
+            />
+          )}
+        </g>
+      )
     case 'cover':
       return <rect {...common} x={mark.x} y={mark.y} width={mark.width} height={mark.height} fill={mark.color} />
     case 'highlight':
@@ -508,5 +574,5 @@ function Shape({
 }
 
 function labelFor(mark: Mark) {
-  return { cover: 'White box', highlight: 'Highlight', rect: 'Box', ellipse: 'Circle', line: 'Line', ink: 'Drawing', text: 'Text' }[mark.kind]
+  return { cover: 'White box', highlight: 'Highlight', rect: 'Box', ellipse: 'Circle', line: 'Line', ink: 'Drawing', text: 'Text', image: 'Signature' }[mark.kind]
 }

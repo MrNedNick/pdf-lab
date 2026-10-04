@@ -37,7 +37,17 @@ export interface LineMark extends Base {
   width: number
 }
 
-export type Mark = TextMark | BoxMark | LineMark
+/** A signature or other picture, as a PNG data URL. */
+export interface ImageMark extends Base {
+  kind: 'image'
+  x: number
+  y: number
+  width: number
+  height: number
+  src: string
+}
+
+export type Mark = TextMark | BoxMark | LineMark | ImageMark
 
 /**
  * Where the first baseline sits in a CSS line box of `LINE_HEIGHT`, as a share

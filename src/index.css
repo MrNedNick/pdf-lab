@@ -4,3 +4,10 @@ body {
   margin: 0;
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
 }
+
+/* Handwriting for typed signatures; downloaded only on the Sign page, where it is used. */
+@font-face {
+  font-family: 'Caveat';
+  src: url('/fonts/Caveat.woff2') format('woff2');
+  font-display: swap;
+}
