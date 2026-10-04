@@ -1,8 +1,7 @@
-import type { MouseEvent } from 'react'
+import { lazy, Suspense, type MouseEvent } from 'react'
 import { TOOLS, toolFor } from './tools'
 import { href, navigate, useRoute } from './lib/router'
 import { ThemeToggle } from './components/layout/theme-toggle'
-import { EmptyState } from './components/empty-state/empty-state'
 
 /** Plain links that switch pages without a reload; modified clicks still open a tab. */
 function link(route: string) {
@@ -15,6 +14,9 @@ function link(route: string) {
     },
   }
 }
+
+// pdf.js is large; the home page never needs it, so the tool area loads on demand.
+const Workspace = lazy(() => import('./components/pdf/workspace').then((module) => ({ default: module.Workspace })))
 
 export default function App() {
   const route = useRoute()
@@ -43,7 +45,9 @@ export default function App() {
               {tool.title}
             </h1>
             <p className="mt-1 text-text-muted">{tool.summary}</p>
-            <EmptyState className="mt-6" title="Drop a PDF here" description="It stays on this device." />
+            <Suspense fallback={<p className="mt-6 text-sm text-text-muted">Loading the PDF tools…</p>}>
+              <Workspace key={tool.slug} />
+            </Suspense>
           </section>
         ) : (
           <section>
