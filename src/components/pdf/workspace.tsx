@@ -7,6 +7,8 @@ import { Viewer } from './viewer'
 import { OrganizeTool } from './organize-tool'
 import { SplitTool } from './split-tool'
 import { MergeTool } from './merge-tool'
+import { ImagesTool } from './images-tool'
+import { PdfToImages } from './pdf-to-images'
 
 /** The open PDF of a tool page: choose a file, unlock it if needed, look at it. */
 export function Workspace({ tool }: { tool: string }) {
@@ -21,6 +23,8 @@ export function Workspace({ tool }: { tool: string }) {
 
   // Merge takes several files and never has one open document.
   if (tool === 'merge') return <MergeTool />
+  // Images has two directions; only "PDF → images" opens a PDF, through a nested workspace.
+  if (tool === 'images') return <ImagesTool pdfSide={<Workspace tool="pdf-to-images" />} />
 
   if (state.status === 'ready') {
     const opened = { doc: state.doc, sizes: state.sizes, bytes: state.bytes, name: state.name, password: state.password }
@@ -41,6 +45,8 @@ export function Workspace({ tool }: { tool: string }) {
           <OrganizeTool {...opened} />
         ) : tool === 'split' ? (
           <SplitTool {...opened} />
+        ) : tool === 'pdf-to-images' ? (
+          <PdfToImages {...opened} />
         ) : (
           <Viewer doc={state.doc} sizes={state.sizes} />
         )}

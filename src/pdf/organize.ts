@@ -9,7 +9,7 @@ export const tilesFor = (count: number): Tile[] =>
   Array.from({ length: count }, (_, index) => ({ key: index, source: index, rotation: 0 }))
 
 /** Moves one tile to a new position, everything else keeps its order. */
-export function move(tiles: Tile[], from: number, to: number): Tile[] {
+export function move<T>(tiles: T[], from: number, to: number): T[] {
   if (from === to || from < 0 || from >= tiles.length) return tiles
   const next = tiles.slice()
   const [tile] = next.splice(from, 1)

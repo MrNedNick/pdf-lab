@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState, type PointerEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import type { PageSize } from '../../pdf/use-document'
 import { FAILURE_TEXT, OpenError, openPdf } from '../../pdf/open'
 import { download, merge } from '../../pdf/write'
-import { cn } from '../../lib/cn'
+import { move } from '../../pdf/organize'
 import { Button } from '../button/button'
 import { FileDrop } from './file-drop'
 import { PageCanvas } from './page-canvas'
+import { OrderList } from './order-list'
 
 interface Item {
   id: number
@@ -22,10 +23,9 @@ interface Item {
 
 let nextId = 1
 
-/** Several PDFs in a list: drag or use the arrows to order them, then one file comes out. */
+/** Several PDFs in a list, in the order the user picks; one file comes out. */
 export function MergeTool() {
   const [items, setItems] = useState<Item[]>([])
-  const [dragging, setDragging] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState('')
   const [passwords, setPasswords] = useState<Record<number, string>>({})
@@ -56,15 +56,6 @@ export function MergeTool() {
     setStatus(`${added.length} ${added.length === 1 ? 'file' : 'files'} added`)
   }
 
-  const moveItem = (from: number, to: number) =>
-    setItems((current) => {
-      if (to < 0 || to >= current.length) return current
-      const next = current.slice()
-      const [item] = next.splice(from, 1)
-      next.splice(to, 0, item!)
-      return next
-    })
-
   const removeItem = (id: number) =>
     setItems((current) => {
       current.find((item) => item.id === id)?.doc?.loadingTask.destroy()
@@ -76,23 +67,6 @@ export function MergeTool() {
     setPasswords({ ...passwords, [item.id]: '' })
     setItems((current) => current.map((it) => (it.id === item.id ? updated : it)))
     void open(updated)
-  }
-
-  const startDrag = (event: PointerEvent, index: number) => {
-    if (event.button !== 0) return
-    event.currentTarget.setPointerCapture(event.pointerId)
-    setDragging(index)
-  }
-  const drag = (event: PointerEvent) => {
-    if (dragging === null) return
-    const over = document
-      .elementsFromPoint(event.clientX, event.clientY)
-      .find((element) => element instanceof HTMLElement && element.dataset.row !== undefined) as HTMLElement | undefined
-    const target = over ? Number(over.dataset.row) : null
-    if (target !== null && target !== dragging) {
-      moveItem(dragging, target)
-      setDragging(target)
-    }
   }
 
   const ready = items.length >= 2 && items.every((item) => item.doc)
@@ -112,98 +86,60 @@ export function MergeTool() {
     <section aria-label="Merge" className="mt-6 space-y-5">
       <FileDrop onFiles={(files) => void add(files)} multiple />
       {items.length > 0 && (
-        <ol aria-label="Files in order" className="space-y-2">
-          {items.map((item, index) => (
-            <li
-              key={item.id}
-              data-row={index}
-              className={cn(
-                'flex flex-wrap items-center gap-x-2 gap-y-2 rounded-lg border border-border bg-surface-raised p-2 sm:gap-x-3',
-                dragging === index && 'ring-2 ring-accent',
-              )}
-            >
-              <span
-                aria-hidden="true"
-                title="Drag to reorder"
-                onPointerDown={(event) => startDrag(event, index)}
-                onPointerMove={drag}
-                onPointerUp={() => setDragging(null)}
-                onPointerCancel={() => setDragging(null)}
-                className="cursor-grab touch-none px-1 text-lg text-text-muted select-none"
+        <OrderList
+          items={items}
+          label="Files in order"
+          keyOf={(item) => item.id}
+          nameOf={(item) => item.name}
+          onMove={(from, to) => setItems((current) => move(current, from, to))}
+          onRemove={(item) => removeItem(item.id)}
+          thumb={(item) =>
+            item.doc && item.cover ? (
+              <PageCanvas doc={item.doc} number={1} size={item.cover} width={40} margin="200px" label="" />
+            ) : null
+          }
+          meta={(item) =>
+            item.doc
+              ? `${item.doc.numPages} ${item.doc.numPages === 1 ? 'page' : 'pages'}`
+              : item.problem === 'broken'
+                ? 'Cannot be read'
+                : item.problem
+                  ? 'Locked'
+                  : 'Opening…'
+          }
+          extra={(item) =>
+            item.problem === 'broken' ? (
+              <p role="alert" className="text-xs text-danger">
+                {FAILURE_TEXT.broken} Remove it to continue.
+              </p>
+            ) : item.problem ? (
+              <form
+                className="flex flex-wrap items-center gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  unlock(item)
+                }}
               >
-                ⋮⋮
-              </span>
-              <span className="hidden w-6 text-center text-sm tabular-nums text-text-muted sm:block">{index + 1}</span>
-              <div className="w-10 shrink-0 sm:w-12">
-                {item.doc && item.cover && (
-                  <PageCanvas doc={item.doc} number={1} size={item.cover} width={40} margin="200px" label="" />
+                <input
+                  type="password"
+                  aria-label={`Password for ${item.name}`}
+                  placeholder="Password"
+                  value={passwords[item.id] ?? ''}
+                  onChange={(event) => setPasswords({ ...passwords, [item.id]: event.target.value })}
+                  className="w-full max-w-56 min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-sm"
+                />
+                <Button size="sm" variant="outline" type="submit">
+                  Unlock
+                </Button>
+                {item.problem === 'wrong-password' && (
+                  <span role="alert" className="basis-full text-xs text-danger">
+                    {FAILURE_TEXT['wrong-password']}
+                  </span>
                 )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium" title={item.name}>
-                  {item.name}
-                </p>
-                <p className="text-xs text-text-muted">
-                  {item.doc
-                    ? `${item.doc.numPages} ${item.doc.numPages === 1 ? 'page' : 'pages'}`
-                    : item.problem === 'broken'
-                      ? 'Cannot be read'
-                      : item.problem
-                        ? 'Locked'
-                        : 'Opening…'}
-                </p>
-              </div>
-              <div className="flex shrink-0">
-                <Button size="sm" variant="ghost" aria-label={`Move ${item.name} up`} disabled={index === 0} onClick={() => moveItem(index, index - 1)}>
-                  ↑
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  aria-label={`Move ${item.name} down`}
-                  disabled={index === items.length - 1}
-                  onClick={() => moveItem(index, index + 1)}
-                >
-                  ↓
-                </Button>
-                <Button size="sm" variant="ghost" aria-label={`Remove ${item.name}`} onClick={() => removeItem(item.id)}>
-                  ✕
-                </Button>
-              </div>
-              {item.problem === 'broken' && (
-                <p role="alert" className="basis-full pl-8 text-xs text-danger">
-                  {FAILURE_TEXT.broken} Remove it to continue.
-                </p>
-              )}
-              {(item.problem === 'password' || item.problem === 'wrong-password') && (
-                <form
-                  className="flex basis-full flex-wrap items-center gap-2 pl-8"
-                  onSubmit={(event) => {
-                    event.preventDefault()
-                    unlock(item)
-                  }}
-                >
-                  <input
-                    type="password"
-                    aria-label={`Password for ${item.name}`}
-                    placeholder="Password"
-                    value={passwords[item.id] ?? ''}
-                    onChange={(event) => setPasswords({ ...passwords, [item.id]: event.target.value })}
-                    className="w-full max-w-56 min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-sm"
-                  />
-                  <Button size="sm" variant="outline" type="submit">
-                    Unlock
-                  </Button>
-                  {item.problem === 'wrong-password' && (
-                    <span role="alert" className="basis-full text-xs text-danger">
-                      {FAILURE_TEXT['wrong-password']}
-                    </span>
-                  )}
-                </form>
-              )}
-            </li>
-          ))}
-        </ol>
+              </form>
+            ) : null
+          }
+        />
       )}
       <div className="flex flex-wrap items-center gap-3">
         <Button loading={busy} disabled={!ready || busy} onClick={() => void run()}>

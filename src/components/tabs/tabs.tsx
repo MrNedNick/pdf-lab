@@ -25,6 +25,8 @@ export interface TabPanelProps {
   value: string
   children: ReactNode
   className?: string
+  /** Keep the content (and its state) alive while another tab is shown. */
+  keepMounted?: boolean
 }
 
 interface TabsContextValue {
@@ -171,7 +173,7 @@ export function Tab({ value, children, disabled }: TabProps) {
   )
 }
 
-export function TabPanel({ value, children, className }: TabPanelProps) {
+export function TabPanel({ value, children, className, keepMounted = false }: TabPanelProps) {
   const { value: active, baseId } = useTabsContext('TabPanel')
   const selected = value === active
 
@@ -184,7 +186,7 @@ export function TabPanel({ value, children, className }: TabPanelProps) {
       tabIndex={0}
       className={cn('py-4', className)}
     >
-      {selected ? children : null}
+      {selected || keepMounted ? children : null}
     </div>
   )
 }

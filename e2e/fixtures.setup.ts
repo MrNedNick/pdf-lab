@@ -1,7 +1,8 @@
+import { chromium } from '@playwright/test'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { PDFDocument, StandardFonts, rgb } from '@cantoo/pdf-lib'
 
-/** Test files are generated, not committed: a long document, a locked one, a broken one and two small ones to merge. */
+/** Test files are generated, not committed: a long document, a locked one, a broken one, two small ones to merge and two images. */
 export const FIXTURES = new URL('../test-results/fixtures/', import.meta.url).pathname
 
 async function numbered(pages: number, size: [number, number] = [595, 842], prefix = 'Page') {
@@ -15,8 +16,44 @@ async function numbered(pages: number, size: [number, number] = [595, 842], pref
   return doc
 }
 
+/** An EXIF block with only the Orientation tag, big-endian. */
+function exifOrientation(value: number): Buffer {
+  const tiff = Buffer.from([0x4d, 0x4d, 0, 0x2a, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, value, 0, 0, 0, 0, 0, 0])
+  const body = Buffer.concat([Buffer.from('Exif\0\0', 'binary'), tiff])
+  const head = Buffer.from([0xff, 0xe1, 0, 0])
+  head.writeUInt16BE(body.length + 2, 2)
+  return Buffer.concat([head, body])
+}
+
+/** Photos drawn by the browser: a phone shot stored sideways with EXIF rotation, and a PNG. */
+async function images() {
+  const browser = await chromium.launch()
+  const page = await browser.newPage()
+  const draw = (w: number, h: number, type: string) =>
+    page.evaluate(
+      async ({ w, h, type }) => {
+        const canvas = new OffscreenCanvas(w, h)
+        const context = canvas.getContext('2d')!
+        context.fillStyle = '#f4efe6'
+        context.fillRect(0, 0, w, h)
+        context.fillStyle = '#c0392b' // a red corner shows which way is up
+        context.fillRect(0, 0, w / 4, h / 4)
+        context.fillStyle = '#222'
+        context.font = `${h / 10}px sans-serif`
+        context.fillText('Document photo', w / 8, h / 2)
+        const blob = await canvas.convertToBlob({ type, quality: 0.9 })
+        return [...new Uint8Array(await blob.arrayBuffer())]
+      },
+      { w, h, type },
+    )
+  const sideways = Buffer.from(await draw(1600, 1200, 'image/jpeg'))
+  writeFileSync(FIXTURES + 'phone-photo.jpg', Buffer.concat([sideways.subarray(0, 2), exifOrientation(6), sideways.subarray(2)]))
+  writeFileSync(FIXTURES + 'diagram.png', Buffer.from(await draw(900, 600, 'image/png')))
+  await browser.close()
+}
+
 export default async function setup() {
-  if (existsSync(FIXTURES + 'beta.pdf')) return
+  if (existsSync(FIXTURES + 'diagram.png')) return
   mkdirSync(FIXTURES, { recursive: true })
   writeFileSync(FIXTURES + 'long-200.pdf', await (await numbered(200)).save())
   writeFileSync(FIXTURES + 'three.pdf', await (await numbered(3)).save())
@@ -26,4 +63,5 @@ export default async function setup() {
   writeFileSync(FIXTURES + 'alpha.pdf', await (await numbered(2, [595, 842], 'Alpha')).save())
   writeFileSync(FIXTURES + 'beta.pdf', await (await numbered(1, [842, 595], 'Beta')).save())
   writeFileSync(FIXTURES + 'broken.pdf', 'This is a text file pretending to be a PDF.')
+  await images()
 }
