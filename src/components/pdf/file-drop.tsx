@@ -2,16 +2,27 @@ import { useRef, useState, type DragEvent } from 'react'
 import { cn } from '../../lib/cn'
 import { Button } from '../button/button'
 
-/** A big target for a PDF: click to choose, or drop it anywhere on the box. */
-export function FileDrop({ onFile, error }: { onFile: (file: File) => void; error?: string }) {
+interface Props {
+  onFiles: (files: File[]) => void
+  /** Several files at once — for tools that combine them. */
+  multiple?: boolean
+  error?: string
+}
+
+/** A big target for PDFs: click to choose, or drop them anywhere on the box. */
+export function FileDrop({ onFiles, multiple = false, error }: Props) {
+  const noun = multiple ? 'PDFs' : 'a PDF'
+  const pick = (list: FileList | null | undefined) => {
+    const files = [...(list ?? [])]
+    if (files.length) onFiles(multiple ? files : files.slice(0, 1))
+  }
   const input = useRef<HTMLInputElement>(null)
   const [over, setOver] = useState(false)
 
   const drop = (event: DragEvent) => {
     event.preventDefault()
     setOver(false)
-    const file = event.dataTransfer.files[0]
-    if (file) onFile(file)
+    pick(event.dataTransfer.files)
   }
 
   return (
@@ -27,10 +38,10 @@ export function FileDrop({ onFile, error }: { onFile: (file: File) => void; erro
         over ? 'border-accent bg-accent/5' : 'border-border',
       )}
     >
-      <p className="text-base font-semibold">Drop a PDF here</p>
+      <p className="text-base font-semibold">Drop {noun} here</p>
       <p className="text-sm text-text-muted">or</p>
-      <Button onClick={() => input.current?.click()}>Choose a PDF</Button>
-      <p className="text-xs text-text-muted">The file stays on this device — nothing is uploaded.</p>
+      <Button onClick={() => input.current?.click()}>Choose {noun}</Button>
+      <p className="text-xs text-text-muted">{multiple ? 'The files stay' : 'The file stays'} on this device — nothing is uploaded.</p>
       {error && (
         <p role="alert" className="mt-2 text-sm font-medium text-danger">
           {error}
@@ -41,11 +52,11 @@ export function FileDrop({ onFile, error }: { onFile: (file: File) => void; erro
         type="file"
         accept="application/pdf,.pdf"
         className="sr-only"
-        aria-label="Choose a PDF"
+        aria-label={`Choose ${noun}`}
+        multiple={multiple}
         tabIndex={-1}
         onChange={(event) => {
-          const file = event.target.files?.[0]
-          if (file) onFile(file)
+          pick(event.target.files)
           event.target.value = ''
         }}
       />

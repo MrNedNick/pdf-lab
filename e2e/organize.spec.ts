@@ -16,6 +16,8 @@ test('reorder with the keyboard, rotate, save — the file has the new order', a
   await page.keyboard.press('Alt+ArrowLeft')
   await page.keyboard.press('Alt+ArrowLeft')
   await expect(tile(page, 3)).toHaveAttribute('aria-label', /position 1$/)
+  // Focus follows the moved page on the next frame; let it land before moving on.
+  await expect(tile(page, 3)).toBeFocused()
   // Turn page 1 to the right.
   await tile(page, 1).focus()
   await page.keyboard.press('r')
@@ -49,4 +51,16 @@ test('drag a page, delete one, extract the selection', async ({ page, isMobile }
   await page.getByRole('button', { name: 'Extract selected' }).click()
   const pages = await readPdf(await downloadEvent)
   expect(pages.map((p) => p.text)).toEqual(['Page 3', 'Page 1'])
+})
+
+test('keyboard focus stays with the page it acts on', async ({ page }) => {
+  await tile(page, 1).focus()
+  await page.keyboard.press('Alt+ArrowRight')
+  await page.keyboard.press('Alt+ArrowRight')
+  await expect(tile(page, 1)).toHaveAttribute('aria-label', /position 3$/)
+  await expect(tile(page, 1)).toBeFocused()
+  // Deleting the last page hands focus to its new neighbour.
+  await page.keyboard.press('Delete')
+  await expect(page.getByRole('checkbox')).toHaveCount(2)
+  await expect(tile(page, 3)).toBeFocused()
 })

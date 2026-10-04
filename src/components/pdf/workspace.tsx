@@ -5,6 +5,8 @@ import { Modal } from '../modal/modal'
 import { FileDrop } from './file-drop'
 import { Viewer } from './viewer'
 import { OrganizeTool } from './organize-tool'
+import { SplitTool } from './split-tool'
+import { MergeTool } from './merge-tool'
 
 /** The open PDF of a tool page: choose a file, unlock it if needed, look at it. */
 export function Workspace({ tool }: { tool: string }) {
@@ -17,7 +19,11 @@ export function Workspace({ tool }: { tool: string }) {
     setPassword('')
   }
 
-  if (state.status === 'ready')
+  // Merge takes several files and never has one open document.
+  if (tool === 'merge') return <MergeTool />
+
+  if (state.status === 'ready') {
+    const opened = { doc: state.doc, sizes: state.sizes, bytes: state.bytes, name: state.name, password: state.password }
     return (
       <div className="mt-6 space-y-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -32,18 +38,15 @@ export function Workspace({ tool }: { tool: string }) {
           </Button>
         </div>
         {tool === 'organize' ? (
-          <OrganizeTool
-            doc={state.doc}
-            sizes={state.sizes}
-            bytes={state.bytes}
-            name={state.name}
-            password={state.password}
-          />
+          <OrganizeTool {...opened} />
+        ) : tool === 'split' ? (
+          <SplitTool {...opened} />
         ) : (
           <Viewer doc={state.doc} sizes={state.sizes} />
         )}
       </div>
     )
+  }
 
   return (
     <div className="mt-6">
@@ -52,7 +55,7 @@ export function Workspace({ tool }: { tool: string }) {
           Opening {state.name}…
         </p>
       ) : (
-        <FileDrop onFile={openFile} error={state.status === 'error' ? `${state.name}: ${state.message}` : undefined} />
+        <FileDrop onFiles={([file]) => openFile(file!)} error={state.status === 'error' ? `${state.name}: ${state.message}` : undefined} />
       )}
       <Modal
         open={state.status === 'password'}

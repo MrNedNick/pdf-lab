@@ -55,8 +55,10 @@ export function PageCanvas({ doc, number, size, width, margin = '800px 0px', lab
   return (
     <div
       ref={box}
-      role="img"
-      aria-label={label}
+      // Without a label the page is decoration next to text that already names it.
+      role={label ? 'img' : undefined}
+      aria-label={label || undefined}
+      aria-hidden={label ? undefined : true}
       className="relative overflow-hidden rounded-sm bg-white shadow-card"
       style={{ width, height: heightFor(rotation % 180 ? { width: size.height, height: size.width } : size, width) }}
     >
