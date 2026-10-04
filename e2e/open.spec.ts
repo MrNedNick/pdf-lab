@@ -2,7 +2,8 @@ import { expect, test } from '@playwright/test'
 import { FIXTURES } from './fixtures.setup'
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('./organize/')
+  // A tool that shows the document as pages to read through.
+  await page.goto('./fill/')
 })
 
 test('a 200-page PDF opens on its first page and scrolls to the last', async ({ page }) => {
