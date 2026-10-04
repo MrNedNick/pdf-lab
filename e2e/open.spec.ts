@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './clean-console'
 import { FIXTURES } from './fixtures.setup'
 
 test.beforeEach(async ({ page }) => {

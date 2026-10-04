@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './clean-console'
 
 test('the home page lists every tool and opens one without a reload', async ({ page }) => {
   await page.goto('./')

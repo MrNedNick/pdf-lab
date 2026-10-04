@@ -1,4 +1,5 @@
-import { expect, test, type Download } from '@playwright/test'
+import type { Download } from '@playwright/test'
+import { expect, test } from './clean-console'
 import { FIXTURES } from './fixtures.setup'
 import { readPdf } from './read-pdf'
 
