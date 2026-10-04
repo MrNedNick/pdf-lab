@@ -18,6 +18,7 @@ export const TOOLS = [
   { slug: 'sign', title: 'Sign', summary: 'Draw or type a signature and place it on the page.' },
   { slug: 'fill', title: 'Fill a form', summary: 'Type into the fields of a PDF form and save it.' },
   { slug: 'compress', title: 'Compress', summary: 'Make a PDF with photos small enough to send.' },
+  { slug: 'view', title: 'Read a PDF', summary: 'Open even a 500-page PDF and page through it, with thumbnails and zoom.' },
 ] as const satisfies readonly Tool[]
 
 export type ToolSlug = (typeof TOOLS)[number]['slug']

@@ -62,8 +62,37 @@ async function contract() {
   return doc.save()
 }
 
+/** An application form with every kind of field: text, multi-line, checkbox, dropdown and radio buttons. */
+async function applicationForm() {
+  const doc = await PDFDocument.create()
+  const font = await doc.embedFont(StandardFonts.Helvetica)
+  const page = doc.addPage([595.28, 841.89])
+  const form = doc.getForm()
+  const label = (text: string, y: number) => page.drawText(text, { x: 72, y: y + 6, size: 11, font })
+  page.drawText('Membership application', { x: 72, y: 770, size: 20, font })
+  label('Full name', 700)
+  form.createTextField('full_name').addToPage(page, { x: 180, y: 696, width: 300, height: 22 })
+  label('Country', 660)
+  const country = form.createDropdown('country')
+  country.addOptions(['Ukraine', 'Poland', 'Germany'])
+  country.addToPage(page, { x: 180, y: 656, width: 160, height: 22 })
+  label('Plan', 620)
+  const plan = form.createRadioGroup('plan')
+  plan.addOptionToPage('basic', page, { x: 180, y: 620, width: 14, height: 14 })
+  plan.addOptionToPage('pro', page, { x: 260, y: 620, width: 14, height: 14 })
+  page.drawText('Basic', { x: 198, y: 622, size: 11, font })
+  page.drawText('Pro', { x: 278, y: 622, size: 11, font })
+  label('About you', 560)
+  const about = form.createTextField('about')
+  about.enableMultiline()
+  about.addToPage(page, { x: 180, y: 500, width: 300, height: 76 })
+  form.createCheckBox('agree').addToPage(page, { x: 72, y: 460, width: 14, height: 14 })
+  page.drawText('I agree to the rules', { x: 92, y: 462, size: 11, font })
+  return doc.save()
+}
+
 export default async function setup() {
-  if (existsSync(FIXTURES + 'contract.pdf')) return
+  if (existsSync(FIXTURES + 'form.pdf')) return
   mkdirSync(FIXTURES, { recursive: true })
   writeFileSync(FIXTURES + 'long-200.pdf', await (await numbered(200)).save())
   writeFileSync(FIXTURES + 'three.pdf', await (await numbered(3)).save())
@@ -75,4 +104,5 @@ export default async function setup() {
   writeFileSync(FIXTURES + 'broken.pdf', 'This is a text file pretending to be a PDF.')
   await images()
   writeFileSync(FIXTURES + 'contract.pdf', await contract())
+  writeFileSync(FIXTURES + 'form.pdf', await applicationForm())
 }

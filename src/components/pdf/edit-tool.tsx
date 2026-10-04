@@ -18,6 +18,7 @@ import {
   type TextLine,
 } from '../../pdf/marks'
 import { stamp, type PageSpace } from '../../pdf/stamp'
+import { notoSans } from '../../pdf/lib'
 import { derivedName, download } from '../../pdf/write'
 import { cn } from '../../lib/cn'
 import { Button } from '../button/button'
@@ -314,8 +315,7 @@ export function EditTool({ mode = 'edit', doc, sizes, bytes, name, password }: P
         const viewport = page.getViewport({ scale: 1 })
         spaces.set(number, { toPdf: (x, y) => viewport.convertToPdfPoint(x, y) as [number, number], rotation: page.rotate })
       }
-      const font = () => fetch(`${import.meta.env.BASE_URL}fonts/NotoSans-Regular.ttf`).then((response) => response.arrayBuffer())
-      download(await stamp(bytes, password, marks, (number) => spaces.get(number)!, font), derivedName(name, mode === 'sign' ? 'signed' : 'edited'))
+      download(await stamp(bytes, password, marks, (number) => spaces.get(number)!, notoSans), derivedName(name, mode === 'sign' ? 'signed' : 'edited'))
       setStatus(`Saved with ${marks.length} ${marks.length === 1 ? 'change' : 'changes'}`)
     } catch {
       setStatus('The file could not be written. Try again.')

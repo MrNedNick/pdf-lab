@@ -3,7 +3,7 @@ import { FIXTURES } from './fixtures.setup'
 
 test.beforeEach(async ({ page }) => {
   // A tool that shows the document as pages to read through.
-  await page.goto('./fill/')
+  await page.goto('./view/')
 })
 
 test('a 200-page PDF opens on its first page and scrolls to the last', async ({ page }) => {

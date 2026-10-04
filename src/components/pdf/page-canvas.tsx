@@ -14,13 +14,15 @@ interface Props {
   label: string
   /** Extra clockwise turn on top of the page's own rotation. */
   rotation?: number
+  /** Leave form fields off the drawing: inputs are placed over them. */
+  withoutFields?: boolean
 }
 
 /**
  * A page that holds its exact place from the start and only draws when it is
  * near the screen — 200 pages cost 200 empty boxes until someone scrolls.
  */
-export function PageCanvas({ doc, number, size, width, margin = '800px 0px', label, rotation = 0 }: Props) {
+export function PageCanvas({ doc, number, size, width, margin = '800px 0px', label, rotation = 0, withoutFields = false }: Props) {
   const box = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const [near, setNear] = useState(false)
@@ -40,7 +42,7 @@ export function PageCanvas({ doc, number, size, width, margin = '800px 0px', lab
     let alive = true
     void doc.getPage(number).then((page) => {
       if (!alive || !canvas.current) return
-      task = renderPage(page, canvas.current, width, rotation)
+      task = renderPage(page, canvas.current, width, rotation, withoutFields)
       task.promise.then(
         () => alive && setDrawn(true),
         () => {}, // cancelled because it scrolled away or the zoom changed
@@ -50,7 +52,7 @@ export function PageCanvas({ doc, number, size, width, margin = '800px 0px', lab
       alive = false
       task?.cancel()
     }
-  }, [near, doc, number, width, rotation])
+  }, [near, doc, number, width, rotation, withoutFields])
 
   return (
     <div

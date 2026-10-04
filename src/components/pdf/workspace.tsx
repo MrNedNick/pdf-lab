@@ -11,6 +11,7 @@ import { MergeTool } from './merge-tool'
 import { ImagesTool } from './images-tool'
 import { PdfToImages } from './pdf-to-images'
 import { EditTool } from './edit-tool'
+import { FormTool } from './form-tool'
 
 /** The open PDF of a tool page: choose a file, unlock it if needed, look at it. */
 export function Workspace({ tool }: { tool: string }) {
@@ -18,7 +19,7 @@ export function Workspace({ tool }: { tool: string }) {
   const [password, setPassword] = useState('')
 
   // Every tool but the plain viewer writes a file; fetch the writer while the user is still choosing.
-  const writes = tool !== 'pdf-to-images' && (tool === 'merge' || tool === 'images' || state.status === 'ready')
+  const writes = tool !== 'pdf-to-images' && tool !== 'view' && (tool === 'merge' || tool === 'images' || state.status === 'ready')
   useEffect(() => {
     if (!writes) return
     const warm = () => void pdfLib().catch(() => {})
@@ -60,6 +61,8 @@ export function Workspace({ tool }: { tool: string }) {
           <OrganizeTool {...opened} />
         ) : tool === 'split' ? (
           <SplitTool {...opened} />
+        ) : tool === 'fill' ? (
+          <FormTool {...opened} />
         ) : tool === 'edit' || tool === 'sign' ? (
           <EditTool mode={tool} {...opened} />
         ) : tool === 'pdf-to-images' ? (
