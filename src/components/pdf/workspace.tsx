@@ -12,6 +12,7 @@ import { ImagesTool } from './images-tool'
 import { PdfToImages } from './pdf-to-images'
 import { EditTool } from './edit-tool'
 import { FormTool } from './form-tool'
+import { CompressTool } from './compress-tool'
 
 /** The open PDF of a tool page: choose a file, unlock it if needed, look at it. */
 export function Workspace({ tool }: { tool: string }) {
@@ -61,6 +62,8 @@ export function Workspace({ tool }: { tool: string }) {
           <OrganizeTool {...opened} />
         ) : tool === 'split' ? (
           <SplitTool {...opened} />
+        ) : tool === 'compress' ? (
+          <CompressTool {...opened} />
         ) : tool === 'fill' ? (
           <FormTool {...opened} />
         ) : tool === 'edit' || tool === 'sign' ? (

@@ -25,6 +25,8 @@ function exifOrientation(value: number): Buffer {
   return Buffer.concat([head, body])
 }
 
+let scan: Buffer | undefined
+
 /** Photos drawn by the browser: a phone shot stored sideways with EXIF rotation, and a PNG. */
 async function images() {
   const browser = await chromium.launch()
@@ -49,6 +51,26 @@ async function images() {
   const sideways = Buffer.from(await draw(1600, 1200, 'image/jpeg'))
   writeFileSync(FIXTURES + 'phone-photo.jpg', Buffer.concat([sideways.subarray(0, 2), exifOrientation(6), sideways.subarray(2)]))
   writeFileSync(FIXTURES + 'diagram.png', Buffer.from(await draw(900, 600, 'image/png')))
+  // A 300 dpi A4 scan: paper grain and a few lines of text, saved as a high-quality JPEG.
+  const scanPage = await page.evaluate(async () => {
+    const canvas = new OffscreenCanvas(2480, 3508)
+    const context = canvas.getContext('2d')!
+    const grain = context.createImageData(2480, 3508)
+    for (let i = 0; i < grain.data.length; i += 4) {
+      const v = 236 + Math.floor(Math.random() * 14)
+      grain.data[i] = v
+      grain.data[i + 1] = v - 2
+      grain.data[i + 2] = v - 6
+      grain.data[i + 3] = 255
+    }
+    context.putImageData(grain, 0, 0)
+    context.fillStyle = '#1b1b1b'
+    context.font = '64px serif'
+    for (let line = 0; line < 30; line++) context.fillText(`Scanned line ${line + 1} of an old paper document.`, 240, 400 + line * 96)
+    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 })
+    return [...new Uint8Array(await blob.arrayBuffer())]
+  })
+  scan = Buffer.from(scanPage)
   await browser.close()
 }
 
@@ -59,6 +81,14 @@ async function contract() {
   const page = doc.addPage([595.28, 841.89])
   const lines = ['Service Agreement', '', 'Between Alpha Studio and Beta Ltd.', 'Date: 1 March 2026', 'Total: 1,200 EUR']
   lines.forEach((text, index) => page.drawText(text, { x: 72, y: 760 - index * 24, size: index ? 13 : 20, font }))
+  return doc.save()
+}
+
+/** Three pages, each one full-page JPEG scan — the kind of file that is too big to email. */
+async function scanned() {
+  const doc = await PDFDocument.create()
+  const image = await doc.embedJpg(scan!)
+  for (let n = 0; n < 3; n++) doc.addPage([595.28, 841.89]).drawImage(image, { x: 0, y: 0, width: 595.28, height: 841.89 })
   return doc.save()
 }
 
@@ -92,7 +122,7 @@ async function applicationForm() {
 }
 
 export default async function setup() {
-  if (existsSync(FIXTURES + 'form.pdf')) return
+  if (existsSync(FIXTURES + 'scan.pdf')) return
   mkdirSync(FIXTURES, { recursive: true })
   writeFileSync(FIXTURES + 'long-200.pdf', await (await numbered(200)).save())
   writeFileSync(FIXTURES + 'three.pdf', await (await numbered(3)).save())
@@ -105,4 +135,5 @@ export default async function setup() {
   await images()
   writeFileSync(FIXTURES + 'contract.pdf', await contract())
   writeFileSync(FIXTURES + 'form.pdf', await applicationForm())
+  writeFileSync(FIXTURES + 'scan.pdf', await scanned())
 }
