@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { imagesToPdf, layout, prepareImage, type LayoutOptions, type PreparedImage } from '../../pdf/images'
 import { move } from '../../pdf/organize'
+import { onArrival } from '../../lib/handoff'
 import { download } from '../../pdf/write'
 import { Button } from '../button/button'
 import { Tab, TabList, TabPanel, Tabs } from '../tabs/tabs'
@@ -107,6 +108,9 @@ function ImagesToPdf() {
       )
   }
 
+  // Files dropped on the home page, taken once on arrival; later renders find the handoff empty.
+  useEffect(() => onArrival(add), [])
+
   const remove = (gone: Item) => {
     URL.revokeObjectURL(gone.url)
     setItems((current) => current.filter((item) => item.id !== gone.id))
@@ -132,7 +136,7 @@ function ImagesToPdf() {
 
   return (
     <section aria-label="Images to PDF" className="mt-5 space-y-5">
-      <FileDrop onFiles={add} multiple images />
+      <FileDrop onFiles={add} multiple kind="images" />
       <div className="grid gap-3 sm:grid-cols-3">
         <Choice
           label="Page size"

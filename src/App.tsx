@@ -1,19 +1,8 @@
-import { lazy, Suspense, type MouseEvent } from 'react'
-import { TOOLS, toolFor } from './tools'
-import { href, navigate, useRoute } from './lib/router'
+import { lazy, Suspense, useEffect } from 'react'
+import { titleFor, toolFor } from './tools'
+import { Home } from './components/layout/home'
+import { link, useRoute } from './lib/router'
 import { ThemeToggle } from './components/layout/theme-toggle'
-
-/** Plain links that switch pages without a reload; modified clicks still open a tab. */
-function link(route: string) {
-  return {
-    href: href(route),
-    onClick: (event: MouseEvent) => {
-      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
-      event.preventDefault()
-      navigate(route)
-    },
-  }
-}
 
 // pdf.js is large; the home page never needs it, so the tool area loads on demand.
 const Workspace = lazy(() => import('./components/pdf/workspace').then((module) => ({ default: module.Workspace })))
@@ -21,6 +10,11 @@ const Workspace = lazy(() => import('./components/pdf/workspace').then((module) 
 export default function App() {
   const route = useRoute()
   const tool = toolFor(route)
+
+  // The static page carries the right title for a direct visit; in-app navigation keeps it in step.
+  useEffect(() => {
+    document.title = titleFor(tool)
+  }, [tool])
 
   return (
     <div className="flex min-h-screen flex-col bg-surface text-text">
@@ -50,23 +44,7 @@ export default function App() {
             </Suspense>
           </section>
         ) : (
-          <section>
-            <h1 className="text-3xl font-semibold tracking-tight">PDF Lab</h1>
-            <p className="mt-2 text-text-muted">Free PDF tools that run in your browser.</p>
-            <ul className="mt-6 grid gap-3 sm:grid-cols-2">
-              {TOOLS.map((item) => (
-                <li key={item.slug}>
-                  <a
-                    {...link(item.slug)}
-                    className="block rounded-lg border border-border bg-surface-raised p-4 transition-colors hover:border-accent"
-                  >
-                    <span className="font-semibold">{item.title}</span>
-                    <span className="mt-1 block text-sm text-text-muted">{item.summary}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </section>
+          <Home />
         )}
       </main>
     </div>

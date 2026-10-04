@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { pdfLib } from '../../pdf/lib'
+import { onArrival } from '../../lib/handoff'
 import { useDocument } from '../../pdf/use-document'
 import { Button } from '../button/button'
 import { Modal } from '../modal/modal'
@@ -18,6 +19,13 @@ import { CompressTool } from './compress-tool'
 export function Workspace({ tool }: { tool: string }) {
   const { state, openFile, unlock, close } = useDocument()
   const [password, setPassword] = useState('')
+
+  // A PDF dropped on the home page opens straight away. Merge and Images take their own files —
+  // including the PDF side of Images, which must not catch the photos meant for the other tab.
+  useEffect(() => {
+    if (tool === 'merge' || tool === 'images' || tool === 'pdf-to-images') return
+    return onArrival(([file]) => openFile(file!))
+  }, [tool, openFile])
 
   // Every tool but the plain viewer writes a file; fetch the writer while the user is still choosing.
   const writes = tool !== 'pdf-to-images' && tool !== 'view' && (tool === 'merge' || tool === 'images' || state.status === 'ready')

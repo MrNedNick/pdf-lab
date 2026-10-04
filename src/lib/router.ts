@@ -32,3 +32,15 @@ export function navigate(route: string) {
   window.scrollTo(0, 0)
   notify()
 }
+
+/** Props for a plain link that switches pages without a reload; modified clicks still open a tab. */
+export function link(route: string) {
+  return {
+    href: href(route),
+    onClick: (event: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; button: number; preventDefault: () => void }) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
+      event.preventDefault()
+      navigate(route)
+    },
+  }
+}

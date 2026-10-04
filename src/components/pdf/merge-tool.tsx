@@ -4,6 +4,7 @@ import type { PageSize } from '../../pdf/use-document'
 import { FAILURE_TEXT, OpenError, openPdf } from '../../pdf/open'
 import { download, merge } from '../../pdf/write'
 import { move } from '../../pdf/organize'
+import { onArrival } from '../../lib/handoff'
 import { Button } from '../button/button'
 import { FileDrop } from './file-drop'
 import { PageCanvas } from './page-canvas'
@@ -55,6 +56,9 @@ export function MergeTool() {
     added.forEach((item) => void open(item))
     setStatus(`${added.length} ${added.length === 1 ? 'file' : 'files'} added`)
   }
+
+  // Files dropped on the home page, taken once on arrival; later renders find the handoff empty.
+  useEffect(() => onArrival((files) => void add(files)), [])
 
   const removeItem = (id: number) =>
     setItems((current) => {

@@ -6,14 +6,14 @@ interface Props {
   onFiles: (files: File[]) => void
   /** Several files at once — for tools that combine them. */
   multiple?: boolean
-  /** Images instead of PDFs. */
-  images?: boolean
+  /** What it takes: PDFs, images, or either. */
+  kind?: 'pdf' | 'images' | 'any'
   error?: string
 }
 
 /** A big target for PDFs: click to choose, or drop them anywhere on the box. */
-export function FileDrop({ onFiles, multiple = false, images = false, error }: Props) {
-  const noun = images ? (multiple ? 'images' : 'an image') : multiple ? 'PDFs' : 'a PDF'
+export function FileDrop({ onFiles, multiple = false, kind = 'pdf', error }: Props) {
+  const noun = { pdf: multiple ? 'PDFs' : 'a PDF', images: multiple ? 'images' : 'an image', any: 'PDFs or photos' }[kind]
   const pick = (list: FileList | null | undefined) => {
     const files = [...(list ?? [])]
     if (files.length) onFiles(multiple ? files : files.slice(0, 1))
@@ -52,7 +52,7 @@ export function FileDrop({ onFiles, multiple = false, images = false, error }: P
       <input
         ref={input}
         type="file"
-        accept={images ? 'image/*' : 'application/pdf,.pdf'}
+        accept={{ pdf: 'application/pdf,.pdf', images: 'image/*', any: 'application/pdf,.pdf,image/*' }[kind]}
         className="sr-only"
         aria-label={`Choose ${noun}`}
         multiple={multiple}

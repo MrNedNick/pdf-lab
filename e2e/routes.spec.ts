@@ -2,12 +2,12 @@ import { expect, test } from './clean-console'
 
 test('the home page lists every tool and opens one without a reload', async ({ page }) => {
   await page.goto('./')
-  await expect(page.getByRole('heading', { level: 1, name: 'PDF Lab' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('PDF tools that never upload your files')
   await page.getByRole('link', { name: /Merge PDFs/ }).click()
   await expect(page).toHaveURL(/\/pdf-lab\/merge\/$/)
   await expect(page.getByRole('heading', { level: 1, name: 'Merge PDFs' })).toBeVisible()
   await page.goBack()
-  await expect(page.getByRole('heading', { level: 1, name: 'PDF Lab' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('PDF tools that never upload your files')
 })
 
 test('a direct link to a tool opens it', async ({ page }) => {

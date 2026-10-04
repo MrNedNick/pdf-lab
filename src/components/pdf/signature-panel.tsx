@@ -208,7 +208,7 @@ function UploadPad({ onUse }: { onUse: (signature: Signature | null) => void }) 
     <div className="space-y-2">
       <p className="text-sm text-text-muted">A photo or scan of your signature on white paper. The paper is removed.</p>
       <FileDrop
-        images
+        kind="images"
         error={error || undefined}
         onFiles={async ([file]) => {
           setError('')
