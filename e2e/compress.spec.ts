@@ -26,3 +26,4 @@ test('a text PDF gets an honest "nothing to gain" instead of a fake win', async 
   await expect(page.getByRole('status')).toContainText('no pictures to shrink')
   await expect(page.getByRole('button', { name: 'Download smaller PDF' })).toHaveCount(0)
 })
+

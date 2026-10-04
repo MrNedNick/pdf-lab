@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { compress, formatSize, LEVELS, type CompressResult, type Level } from '../../pdf/compress'
+import { compress, formatSize, LEVELS, verdictFor, type CompressResult, type Level } from '../../pdf/compress'
 import { derivedName, download } from '../../pdf/write'
 import { Button } from '../button/button'
 import { Progress } from '../progress/progress'
@@ -31,8 +31,7 @@ export function CompressTool({ bytes, name, password }: Props) {
   }
 
   const saved = result ? 1 - result.after / result.before : 0
-  // Under 10 % is not worth a new file: say so instead of offering a "compressed" copy that is not.
-  const worthIt = result !== null && saved >= 0.1
+  const verdict = result ? verdictFor(result, level) : null
 
   return (
     <section aria-label="Compress" className="mt-6 space-y-5">
@@ -81,7 +80,7 @@ export function CompressTool({ bytes, name, password }: Props) {
               {formatSize(result.before)} → {formatSize(result.after)}
               {saved > 0 && <span className="ml-2 text-base font-medium text-text-muted">−{Math.round(saved * 100)}%</span>}
             </p>
-            {worthIt ? (
+            {verdict?.worthIt ? (
               <>
                 <p className="text-sm text-text-muted">
                   {result.replaced} of {result.images} {result.images === 1 ? 'picture' : 'pictures'} made smaller.
@@ -89,13 +88,7 @@ export function CompressTool({ bytes, name, password }: Props) {
                 <Button onClick={() => download(result.bytes, derivedName(name, 'compressed'))}>Download smaller PDF</Button>
               </>
             ) : (
-              <p className="text-sm">
-                {result.images === 0
-                  ? 'This PDF has no pictures to shrink — it is text and drawings, which are already stored compactly. There is nothing honest to gain here; keep the original.'
-                  : result.replaced === 0
-                    ? 'The pictures in this PDF are already compressed about as far as they go, or are of a kind that is safer to leave alone. Keep the original.'
-                    : 'Only a little could be saved — not enough to be worth a new file. Keep the original, or try Strong.'}
-              </p>
+              <p className="text-sm">{verdict?.reason}</p>
             )}
           </div>
         )}

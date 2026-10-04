@@ -151,6 +151,19 @@ export async function compress(
   return { bytes: out, before: bytes.length, after: out.length, images, replaced }
 }
 
+/**
+ * Whether the result is worth a new file, and if not, why — in plain words.
+ * Under 10 % saved is not: the user gets an honest answer instead of a copy that is barely smaller.
+ */
+export function verdictFor(result: Pick<CompressResult, 'before' | 'after' | 'images' | 'replaced'>, level: Level): { worthIt: true } | { worthIt: false; reason: string } {
+  if (1 - result.after / result.before >= 0.1) return { worthIt: true }
+  if (result.images === 0)
+    return { worthIt: false, reason: 'This PDF has no pictures to shrink — it is text and drawings, which are already stored compactly. There is nothing honest to gain here; keep the original.' }
+  if (result.replaced === 0)
+    return { worthIt: false, reason: 'The pictures in this PDF are already compressed about as far as they go, or are of a kind that is safer to leave alone. Keep the original.' }
+  return { worthIt: false, reason: `Only a little could be saved — not enough to be worth a new file. Keep the original${level === 'strong' ? '.' : ', or try Strong.'}` }
+}
+
 /** 1 234 567 → "1.2 MB", for the before → after line. */
 export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
