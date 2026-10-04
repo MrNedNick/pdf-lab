@@ -1,4 +1,4 @@
-import { PDFDocument } from '@cantoo/pdf-lib'
+import { pdfLib } from './lib'
 
 export type Paper = 'a4' | 'letter' | 'fit'
 export type Orientation = 'auto' | 'portrait' | 'landscape'
@@ -54,6 +54,7 @@ export interface PreparedImage {
 
 /** One page per image, in the given order. */
 export async function imagesToPdf(images: PreparedImage[], options: LayoutOptions): Promise<Uint8Array> {
+  const { PDFDocument } = await pdfLib()
   const doc = await PDFDocument.create()
   for (const image of images) {
     const embedded = image.type === 'png' ? await doc.embedPng(image.bytes) : await doc.embedJpg(image.bytes)

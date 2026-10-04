@@ -1,4 +1,5 @@
-import { BlendMode, degrees, LineCapStyle, rgb, StandardFonts, type PDFFont } from '@cantoo/pdf-lib'
+import type { PDFFont, StandardFonts } from '@cantoo/pdf-lib'
+import { pdfLib } from './lib'
 import { LINE_HEIGHT, type Family, type Mark } from './marks'
 import { loadForWriting } from './write'
 
@@ -9,16 +10,7 @@ export interface PageSpace {
   rotation: number
 }
 
-const STANDARD: Record<Family, StandardFonts> = {
-  sans: StandardFonts.Helvetica,
-  serif: StandardFonts.TimesRoman,
-  mono: StandardFonts.Courier,
-}
-
-function color(hex: string) {
-  const value = parseInt(hex.slice(1), 16)
-  return rgb(((value >> 16) & 255) / 255, ((value >> 8) & 255) / 255, (value & 255) / 255)
-}
+const STANDARD: Record<Family, `${StandardFonts}`> = { sans: 'Helvetica', serif: 'Times-Roman', mono: 'Courier' }
 
 /** Characters of WinAnsi above Latin-1's printable range, the only ones the standard fonts carry. */
 const WIN_ANSI_EXTRA = new Set('€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ')
@@ -48,6 +40,11 @@ export async function stamp(
   spaceOf: (page: number) => PageSpace,
   loadUnicodeFont: () => Promise<ArrayBuffer | Uint8Array>,
 ): Promise<Uint8Array> {
+  const { BlendMode, degrees, LineCapStyle, rgb } = await pdfLib()
+  const color = (hex: string) => {
+    const value = parseInt(hex.slice(1), 16)
+    return rgb(((value >> 16) & 255) / 255, ((value >> 8) & 255) / 255, (value & 255) / 255)
+  }
   const doc = await loadForWriting(bytes, password)
   const fonts = new Map<string, PDFFont>()
   const fontFor = async (family: Family, text: string) => {

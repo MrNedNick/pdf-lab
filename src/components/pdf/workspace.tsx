@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { pdfLib } from '../../pdf/lib'
 import { useDocument } from '../../pdf/use-document'
 import { Button } from '../button/button'
 import { Modal } from '../modal/modal'
@@ -15,6 +16,19 @@ import { EditTool } from './edit-tool'
 export function Workspace({ tool }: { tool: string }) {
   const { state, openFile, unlock, close } = useDocument()
   const [password, setPassword] = useState('')
+
+  // Every tool but the plain viewer writes a file; fetch the writer while the user is still choosing.
+  const writes = tool !== 'pdf-to-images' && (tool === 'merge' || tool === 'images' || state.status === 'ready')
+  useEffect(() => {
+    if (!writes) return
+    const warm = () => void pdfLib().catch(() => {})
+    if ('requestIdleCallback' in window) {
+      const handle = requestIdleCallback(warm, { timeout: 4000 })
+      return () => cancelIdleCallback(handle)
+    }
+    const handle = setTimeout(warm, 1500)
+    return () => clearTimeout(handle)
+  }, [writes])
 
   const submit = (event: FormEvent) => {
     event.preventDefault()

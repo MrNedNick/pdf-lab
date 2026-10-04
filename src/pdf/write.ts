@@ -1,4 +1,5 @@
-import { degrees, PDFDocument } from '@cantoo/pdf-lib'
+import type { PDFDocument } from '@cantoo/pdf-lib'
+import { pdfLib } from './lib'
 
 /** One page of the result: which page of the source, turned by how much. */
 export interface PagePlan {
@@ -9,6 +10,7 @@ export interface PagePlan {
 }
 
 export async function loadForWriting(bytes: Uint8Array, password?: string): Promise<PDFDocument> {
+  const { PDFDocument } = await pdfLib()
   return PDFDocument.load(bytes, password ? { password } : {})
 }
 
@@ -18,6 +20,7 @@ export async function loadForWriting(bytes: Uint8Array, password?: string): Prom
  * so nothing is re-drawn or rasterised.
  */
 export async function rebuild(bytes: Uint8Array, plan: PagePlan[], password?: string): Promise<Uint8Array> {
+  const { PDFDocument, degrees } = await pdfLib()
   const source = await loadForWriting(bytes, password)
   const out = await PDFDocument.create()
   const pages = await out.copyPages(
@@ -51,6 +54,7 @@ export function derivedName(name: string, suffix: string, extension = 'pdf'): st
 
 /** Several documents, one after another, each with all its pages. */
 export async function merge(files: { bytes: Uint8Array; password?: string }[]): Promise<Uint8Array> {
+  const { PDFDocument } = await pdfLib()
   const out = await PDFDocument.create()
   for (const file of files) {
     const source = await loadForWriting(file.bytes, file.password)
@@ -66,6 +70,7 @@ export async function split(
   ranges: { from: number; to: number }[],
   password?: string,
 ): Promise<Uint8Array[]> {
+  const { PDFDocument } = await pdfLib()
   const source = await loadForWriting(bytes, password)
   const parts: Uint8Array[] = []
   for (const range of ranges) {
