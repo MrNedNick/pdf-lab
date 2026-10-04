@@ -406,7 +406,8 @@ export function EditTool({ mode = 'edit', doc, sizes, bytes, name, password }: P
                 data-overlay
                 aria-label={`Marks on page ${page}`}
                 className={cn(
-                  'absolute inset-0',
+                  // Dragging a box or a stroke must not start the browser's own text selection.
+                  'absolute inset-0 select-none',
                   // A finger scrolls the document unless the tool draws with it.
                   tool === 'select' || tool === 'line-edit' || tool === 'text' || tool === 'sign' ? 'touch-manipulation' : 'touch-none',
                   tool === 'select' ? 'cursor-default' : tool === 'line-edit' || tool === 'text' ? 'cursor-text' : 'cursor-crosshair',

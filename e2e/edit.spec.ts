@@ -87,3 +87,21 @@ test('a mark can be picked, nudged and deleted from the keyboard', async ({ page
   await page.keyboard.press('Delete')
   await expect(overlay.getByRole('button', { name: 'Box' })).toHaveCount(0)
 })
+
+test('drawing a box over text does not start a text selection', async ({ page }) => {
+  await open(page)
+  // Retyped text is real DOM text on the layer — the thing a drag could select.
+  await page.getByLabel('Marks on page 1').click({ position: await at(page, 100, 150) })
+  await page.getByLabel('Text on the page').fill('Date: 2 April 2026')
+  await page.getByLabel('Text on the page').press('Escape')
+  await page.getByRole('button', { name: 'Highlight' }).click()
+  const overlay = page.getByLabel('Marks on page 1')
+  const box = (await overlay.boundingBox())!
+  const from = await at(page, 70, 165)
+  const to = await at(page, 180, 182)
+  await page.mouse.move(box.x + from.x, box.y + from.y)
+  await page.mouse.down()
+  await page.mouse.move(box.x + to.x, box.y + to.y, { steps: 5 })
+  await page.mouse.up()
+  expect(await page.evaluate(() => String(getSelection()))).toBe('')
+})
