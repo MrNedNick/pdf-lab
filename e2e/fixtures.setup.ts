@@ -52,8 +52,18 @@ async function images() {
   await browser.close()
 }
 
+/** A one-page agreement set in Times, with a date to correct. */
+async function contract() {
+  const doc = await PDFDocument.create()
+  const font = await doc.embedFont(StandardFonts.TimesRoman)
+  const page = doc.addPage([595.28, 841.89])
+  const lines = ['Service Agreement', '', 'Between Alpha Studio and Beta Ltd.', 'Date: 1 March 2026', 'Total: 1,200 EUR']
+  lines.forEach((text, index) => page.drawText(text, { x: 72, y: 760 - index * 24, size: index ? 13 : 20, font }))
+  return doc.save()
+}
+
 export default async function setup() {
-  if (existsSync(FIXTURES + 'diagram.png')) return
+  if (existsSync(FIXTURES + 'contract.pdf')) return
   mkdirSync(FIXTURES, { recursive: true })
   writeFileSync(FIXTURES + 'long-200.pdf', await (await numbered(200)).save())
   writeFileSync(FIXTURES + 'three.pdf', await (await numbered(3)).save())
@@ -64,4 +74,5 @@ export default async function setup() {
   writeFileSync(FIXTURES + 'beta.pdf', await (await numbered(1, [842, 595], 'Beta')).save())
   writeFileSync(FIXTURES + 'broken.pdf', 'This is a text file pretending to be a PDF.')
   await images()
+  writeFileSync(FIXTURES + 'contract.pdf', await contract())
 }
